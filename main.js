@@ -99,11 +99,24 @@ function binExists(name) {
   try { execFileSync('which', [name], { env: process.env }); return true; } catch { return false; }
 }
 
-function runShell(cmd, timeout = 300000) {
+function runShell(cmd, timeout = 180000) {
   return new Promise((resolve) => {
-    execFile('bash', ['-lc', cmd], { timeout, maxBuffer: 8 * 1024 * 1024 }, (err, stdout, stderr) => {
-      resolve({ ok: !err, output: (stderr || stdout || '').trim() });
+    // Installer scripts piped through curl|bash sometimes prompt for
+    // confirmation. execFile's default stdin is an open, empty pipe — if the
+    // script tries to read from it, it blocks forever waiting for input that
+    // will never come, timeout or not (a `timeout`-killed process still took
+    // the full timeout to get there). Closing stdin up front means any such
+    // prompt hits EOF immediately instead of hanging.
+    const proc = spawn('bash', ['-lc', cmd], { stdio: ['ignore', 'pipe', 'pipe'] });
+    let output = '';
+    proc.stdout.on('data', (d) => { output += d; });
+    proc.stderr.on('data', (d) => { output += d; });
+    const timer = setTimeout(() => proc.kill('SIGKILL'), timeout);
+    proc.on('close', (code) => {
+      clearTimeout(timer);
+      resolve({ ok: code === 0, output: output.trim().slice(-2000) });
     });
+    proc.on('error', (e) => { clearTimeout(timer); resolve({ ok: false, output: e.message }); });
   });
 }
 
@@ -118,8 +131,13 @@ function sendStatus(text) {
 // best-effort, since only the Learn tab's NotebookLM features need it.
 async function ensureClaudeCli() {
   if (binExists('claude')) return true;
+  // A silent multi-minute wait reads as "frozen", not "working" — tick the
+  // status text so there's visible proof it's still alive.
+  let secs = 0;
+  const ticker = setInterval(() => { secs += 5; sendStatus(`Installing Claude Code… (${secs}s)`); }, 5000);
   sendStatus('Installing Claude Code…');
   const { ok, output } = await runShell('curl -fsSL https://claude.ai/install.sh | bash');
+  clearInterval(ticker);
   if (!ok || !fs.existsSync(path.join(LOCAL_BIN, 'claude'))) {
     sendStatus('Claude Code install failed');
     dialog.showErrorBox('Setup failed', `Couldn't install Claude Code automatically.\n\n${output.slice(0, 500)}\n\nInstall it manually from claude.ai/code, then relaunch Cozmo.`);
