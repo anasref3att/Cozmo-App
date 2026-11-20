@@ -41,8 +41,7 @@ memory across chats — download it, sign in twice, and that's the whole setup.
 - **Projects** — group chats around a shared target. Every chat in a project
   gets a digest of what the others covered, plus whatever notes you give the
   project — shared context, not just a folder label.
-- **Learn** — pulls course material via Learn1 and files it into NotebookLM,
-  with sign-in/out built in.
+- **Learn** — syncs course material into NotebookLM, with sign-in/out built in.
 - **Zero setup** — first launch installs `claude` and `nlm` for you if they're
   missing, then walks you through sign-in. No terminal, ever.
 
