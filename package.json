@@ -1,0 +1,29 @@
+{
+  "name": "cozmo-app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --mac --dir"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "electron": "^45.4.1",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "com.anas.cozmo",
+    "productName": "Cozmo",
+    "icon": "build/icon.icns",
+    "files": ["main.js", "preload.js", "signin.html", "bootstrap.html", "!node_modules/electron-builder/**"],
+    "extraResources": [
+      { "from": "../cozbra-dashboard", "to": "dashboard", "filter": ["**/*", "!.git", "!*.jsonl*"] },
+      { "from": "vault-template", "to": "vault-template" }
+    ],
+    "mac": { "category": "public.app-category.productivity" }
+  }
+}

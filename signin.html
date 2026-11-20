@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Cozmo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #06080C; --surface: #10151C; --accent: #2DD4BF; --accent-h: #5EEAD4;
+    --accent-2: #6366F1; --glow-rgb: 45,212,191; --text: #F1F5F9; --text-2: #94A3B0;
+    --border: #1E2733; --border-lt: #141B24; --r: 8px; --r-sm: 2px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg); color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-app-region: drag; user-select: none; position: relative;
+  }
+  #starfield { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; opacity: 0.55; }
+  .nebula-1 {
+    position: fixed; z-index: 0; pointer-events: none; width: 720px; height: 720px; top: -260px; right: -220px;
+    background: radial-gradient(circle, rgba(var(--glow-rgb),0.12) 0%, rgba(99,102,241,0.06) 45%, transparent 70%);
+    filter: blur(24px);
+  }
+  .nebula-2 {
+    position: fixed; z-index: 0; pointer-events: none; width: 560px; height: 560px; bottom: -260px; left: -160px;
+    background: radial-gradient(circle, rgba(99,102,241,0.07) 0%, transparent 70%);
+    filter: blur(24px);
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(var(--glow-rgb),0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(var(--glow-rgb),0.05) 1px, transparent 1px);
+    background-size: 42px 42px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 0%, transparent 70%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 0%, transparent 70%);
+  }
+  .card { position: relative; z-index: 1; text-align: center; -webkit-app-region: no-drag; }
+  .mark-wrap { width: 72px; height: 72px; margin: 0 auto 26px; color: var(--accent); position: relative; }
+  .mark-wrap svg { width: 100%; height: 100%; animation: orbitSpin 10s linear infinite; }
+  .mark-core { animation: orbitCorePulse 2.4s ease-in-out infinite; transform-origin: 50px 50px; }
+  @keyframes orbitSpin { to { transform: rotate(360deg); } }
+  @keyframes orbitCorePulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+  h1 { font-family: 'Space Grotesk', sans-serif; font-size: 21px; font-weight: 600; margin: 0 0 9px; letter-spacing: 0.2px; }
+  p { font-size: 13px; color: var(--text-2); margin: 0 0 30px; max-width: 320px; line-height: 1.65; }
+  button {
+    -webkit-app-region: no-drag;
+    font-family: 'Inter', system-ui, sans-serif; font-weight: 600; font-size: 13px; color: var(--text-2);
+    background: var(--bg); border: 1px solid var(--border);
+    padding: 9px 22px; border-radius: var(--r-sm); cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.08s ease;
+  }
+  button:hover { background: var(--border-lt); color: var(--text); }
+  button:active { transform: scale(0.97); }
+  button:disabled { opacity: 0.55; cursor: default; transform: none; }
+  .status { margin-top: 20px; font-size: 12px; color: var(--accent-h); min-height: 16px; letter-spacing: 0.2px; }
+  .status.error { color: #FB7185; }
+</style>
+</head>
+<body>
+  <canvas id="starfield" aria-hidden="true"></canvas>
+  <div class="nebula-1" aria-hidden="true"></div>
+  <div class="nebula-2" aria-hidden="true"></div>
+
+  <div class="card">
+    <div class="mark-wrap">
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="8.5" fill="none" stroke="currentColor" stroke-width="3"/>
+        <circle class="mark-core" cx="50" cy="50" r="3" fill="currentColor"/>
+        <ellipse cx="50" cy="50" rx="40" ry="16" fill="none" stroke="currentColor" stroke-width="2.6"/>
+        <ellipse cx="50" cy="50" rx="40" ry="16" transform="rotate(60 50 50)" fill="none" stroke="currentColor" stroke-width="1.6" opacity="0.45"/>
+        <ellipse cx="50" cy="50" rx="40" ry="16" transform="rotate(120 50 50)" fill="none" stroke="currentColor" stroke-width="1.6" opacity="0.45"/>
+        <circle cx="90" cy="50" r="3.4" fill="currentColor"/>
+        <circle cx="27" cy="21.4" r="2.4" fill="currentColor" opacity="0.7"/>
+        <circle cx="73" cy="78.6" r="2.4" fill="currentColor" opacity="0.7"/>
+      </svg>
+    </div>
+    <h1>Sign in to Cozmo</h1>
+    <p>Opens your browser for Anthropic login — nothing to type here. Come back to this window once it's done.</p>
+    <button id="btn">Sign in with Claude</button>
+    <div class="status" id="status"></div>
+  </div>
+
+  <script>
+    (function starfield() {
+      const canvas = document.getElementById('starfield');
+      const ctx = canvas.getContext('2d');
+      let stars = [];
+      function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        const count = Math.floor((canvas.width * canvas.height) / 22000);
+        stars = Array.from({ length: count }, () => ({
+          x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+          r: Math.random() * 0.9 + 0.3, baseAlpha: Math.random() * 0.3 + 0.12,
+          phase: Math.random() * Math.PI * 2, speed: Math.random() * 0.012 + 0.004,
+        }));
+      }
+      let t = 0;
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (const s of stars) {
+          const twinkle = Math.sin(t * s.speed * 10 + s.phase) * 0.4 + 0.6;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(230,225,255,${(s.baseAlpha * twinkle).toFixed(3)})`;
+          ctx.fill();
+        }
+        t++;
+        requestAnimationFrame(draw);
+      }
+      window.addEventListener('resize', resize);
+      resize();
+      draw();
+    })();
+
+    const btn = document.getElementById('btn');
+    const status = document.getElementById('status');
+    let polling = false;
+
+    async function poll() {
+      if (polling) return;
+      polling = true;
+      for (let i = 0; i < 150; i++) { // ~5 minutes
+        const ok = await window.cozmo.checkAuth();
+        if (ok) return;
+        await new Promise(r => setTimeout(r, 2000));
+      }
+      status.textContent = "Still waiting — click Sign in again if your browser didn't open.";
+      status.classList.add('error');
+      polling = false;
+      btn.disabled = false;
+    }
+
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      status.classList.remove('error');
+      status.textContent = 'Opening your browser…';
+      await window.cozmo.startLogin();
+      status.textContent = 'Waiting for sign-in to complete…';
+      poll();
+    });
+
+    // Already logged in by the time this page loads (e.g. re-opened the
+    // app) — the main process handles the transition, nothing to do here.
+    window.cozmo.checkAuth();
+  </script>
+</body>
+</html>

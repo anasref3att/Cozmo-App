@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Cozmo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #06080C; --accent: #2DD4BF; --glow-rgb: 45,212,191;
+    --text: #F1F5F9; --text-2: #94A3B0;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg); color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-app-region: drag; user-select: none;
+  }
+  .card { text-align: center; }
+  .mark-wrap { width: 56px; height: 56px; margin: 0 auto 22px; color: var(--accent); }
+  .mark-wrap svg { width: 100%; height: 100%; animation: orbitSpin 10s linear infinite; }
+  .mark-core { animation: orbitCorePulse 2.4s ease-in-out infinite; transform-origin: 50px 50px; }
+  @keyframes orbitSpin { to { transform: rotate(360deg); } }
+  @keyframes orbitCorePulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+  h1 { font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 600; margin: 0 0 10px; }
+  p { font-size: 13px; color: var(--text-2); margin: 0; min-height: 16px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="mark-wrap">
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="8.5" fill="none" stroke="currentColor" stroke-width="3"/>
+        <circle class="mark-core" cx="50" cy="50" r="3" fill="currentColor"/>
+        <ellipse cx="50" cy="50" rx="40" ry="16" fill="none" stroke="currentColor" stroke-width="2.6"/>
+        <ellipse cx="50" cy="50" rx="40" ry="16" transform="rotate(60 50 50)" fill="none" stroke="currentColor" stroke-width="1.6" opacity="0.45"/>
+        <ellipse cx="50" cy="50" rx="40" ry="16" transform="rotate(120 50 50)" fill="none" stroke="currentColor" stroke-width="1.6" opacity="0.45"/>
+      </svg>
+    </div>
+    <h1>Setting up Cozmo</h1>
+    <p id="status">Checking your setup…</p>
+  </div>
+  <script>
+    window.cozmo.onBootstrapStatus((text) => { document.getElementById('status').textContent = text; });
+  </script>
+</body>
+</html>
