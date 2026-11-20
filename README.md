@@ -53,7 +53,14 @@ memory across chats — download it, sign in twice, and that's the whole setup.
 1. Grab the latest build from [Releases](../../releases) — unzip it.
 2. **Right-click → Open** the first time (it's unsigned, so macOS Gatekeeper
    blocks a plain double-click once).
-3. Sign in to Claude when asked. If you use the Learn tab, sign in to
+3. If that still shows an error with no override option (some macOS versions
+   refuse a fully unsigned app outright instead of offering "Open Anyway"),
+   open Terminal and run:
+   ```bash
+   xattr -cr ~/Downloads/Cozmo.app
+   ```
+   (adjust the path if you moved it elsewhere), then try opening it again.
+4. Sign in to Claude when asked. If you use the Learn tab, sign in to
    NotebookLM from there too.
 
 That's it — everything else (the vault, Diary, Logs) builds itself on first run.
