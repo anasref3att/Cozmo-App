@@ -1,11 +1,11 @@
 {
   "name": "cozmo-app",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --mac --dir"
+    "dist": "electron-builder --mac --dir --universal"
   },
   "keywords": [],
   "author": "",
