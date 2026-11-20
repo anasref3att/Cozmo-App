@@ -67,7 +67,10 @@ function startServer() {
     // silently quits, with no dashboard output at all. Dev mode only "worked"
     // because unpackaged Electron happens to treat a path argument as "load
     // this as the app" instead.
-    env: { ...process.env, PORT: String(PORT), VAULT_DIR: USER_VAULT_DIR, ELECTRON_RUN_AS_NODE: '1' },
+    // DISABLE_LEARN1: Learn1 is a personal BUE/Moodle integration, meaningless
+    // for anyone else — only set here, in the packaged app, never on the dev
+    // machine's own pm2-run dashboard, which still uses it for real.
+    env: { ...process.env, PORT: String(PORT), VAULT_DIR: USER_VAULT_DIR, DISABLE_LEARN1: '1', ELECTRON_RUN_AS_NODE: '1' },
     stdio: 'pipe',
   });
   serverProc.stdout.on('data', (d) => process.stdout.write(`[dashboard] ${d}`));
