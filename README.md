@@ -33,11 +33,14 @@ memory across chats — download it, sign in twice, and that's the whole setup.
 ## What it actually does
 
 - **Chat** — a real Claude Code session per conversation, not a toy wrapper.
-- **Vault** — your own markdown memory (`~/Cozmo/vault`), browsable as a literal
-  galaxy: folders are planets, notes orbit them, real `[[links]]` draw as
-  connections between stars. Click any star to read or edit the note.
-- **Diary & Logs, written automatically** — one log entry per turn, one diary
-  entry per day, seeded from what actually happened. Nothing to remember to do.
+- **Vault that builds itself as you go** — starts as an empty template
+  (`~/Cozmo/vault`), not a form to fill out. Cozmo asks your name on first
+  contact and writes it in; every turn appends to that day's log, every day
+  gets a diary entry seeded from what actually happened. The vault a month in
+  looks nothing like day one, and you never had to maintain it by hand.
+  Browsable as a literal galaxy: folders are planets, notes orbit them, real
+  `[[links]]` draw as connections between stars. Click any star to read or
+  edit the note.
 - **Projects** — group chats around a shared target. Every chat in a project
   gets a digest of what the others covered, plus whatever notes you give the
   project — shared context, not just a folder label.
