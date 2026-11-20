@@ -24,11 +24,24 @@ const VAULT_TEMPLATE_DIR = app.isPackaged
 // own ~/cozbra, that's personal data, not a template. Each install gets its
 // own blank-but-structured vault here instead.
 const USER_VAULT_DIR = path.join(os.homedir(), 'Cozmo', 'vault');
+const SKILLS_TEMPLATE_DIR = app.isPackaged
+  ? path.join(process.resourcesPath, 'skills-template')
+  : path.join(__dirname, 'skills-bundle');
+const USER_SKILLS_DIR = path.join(os.homedir(), 'Cozmo', 'skills');
 
 function ensureVault() {
   if (fs.existsSync(USER_VAULT_DIR)) return;
   fs.mkdirSync(USER_VAULT_DIR, { recursive: true });
   fs.cpSync(VAULT_TEMPLATE_DIR, USER_VAULT_DIR, { recursive: true });
+}
+
+// Copies the bundled skills (source only, no node_modules) into place on
+// first run. Each skill's own `npm install` runs later, in the background,
+// from ensureSkillDeps() — this just needs the files on disk fast.
+function ensureSkillsFiles() {
+  if (fs.existsSync(USER_SKILLS_DIR) || !fs.existsSync(SKILLS_TEMPLATE_DIR)) return;
+  fs.mkdirSync(USER_SKILLS_DIR, { recursive: true });
+  fs.cpSync(SKILLS_TEMPLATE_DIR, USER_SKILLS_DIR, { recursive: true });
 }
 // Own port, separate from any pm2-managed dashboard (3002) that might already
 // be running on this machine — the app must own and control its own server,
@@ -90,8 +103,20 @@ function startServer() {
 // below place) actually live. Without this, checks below could wrongly
 // think they're missing even right after installing them.
 const LOCAL_BIN = path.join(os.homedir(), '.local', 'bin');
-if (!process.env.PATH.split(path.delimiter).includes(LOCAL_BIN)) {
-  process.env.PATH = `${LOCAL_BIN}${path.delimiter}${process.env.PATH}`;
+// Also cover where Node/Homebrew/fnm actually install on macOS — a GUI
+// app's minimal PATH skips these too, so a perfectly real `node` or `npm`
+// would otherwise look "missing" and trigger a needless reinstall.
+const EXTRA_BIN_DIRS = [
+  LOCAL_BIN,
+  '/opt/homebrew/bin',
+  '/usr/local/bin',
+  path.join(os.homedir(), '.local', 'share', 'fnm'),
+  path.join(os.homedir(), '.fnm', 'current', 'bin'),
+];
+for (const dir of EXTRA_BIN_DIRS) {
+  if (!process.env.PATH.split(path.delimiter).includes(dir)) {
+    process.env.PATH = `${dir}${path.delimiter}${process.env.PATH}`;
+  }
 }
 
 function binExists(name) {
@@ -157,6 +182,68 @@ async function ensureNlmCli() {
   await runShell('uv tool install notebooklm-mcp-cli --with "cryptography<44"');
 }
 
+// The bundled skills (browser automation, YouTube transcripts, summarize)
+// are plain Node scripts invoked via Bash, not registered Claude "Skill"
+// tool entries — same convention Anas's own setup already uses, documented
+// in the vault's Skills.md. They need `npm install` once per skill, and
+// `node`/`npm` itself, which a fresh Mac may not have. All best-effort: if
+// Node can't be installed, or one skill's install fails (e.g. the `canvas`
+// native build needs Xcode Command Line Tools), that skill just won't work
+// — nothing else in the app depends on it.
+const FNM_DIR = path.join(os.homedir(), '.local', 'share', 'fnm');
+
+async function ensureNodeForSkills() {
+  if (binExists('node') && binExists('npm')) return true;
+  sendStatus('Installing Node.js (needed for skills)…');
+  // fnm's own installer defaults to `brew install fnm` on macOS and hard-fails
+  // if Homebrew isn't present — exactly the case for a non-developer beta
+  // tester. --force-install skips Homebrew entirely and downloads the plain
+  // binary into --install-dir, which is only honored on that path (the brew
+  // branch ignores --install-dir and uses brew's own prefix instead).
+  await runShell(`curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell --force-install --install-dir "${FNM_DIR}"`);
+  if (!process.env.PATH.split(path.delimiter).includes(FNM_DIR)) {
+    process.env.PATH = `${FNM_DIR}${path.delimiter}${process.env.PATH}`;
+  }
+  if (!binExists('fnm')) return false; // best-effort — skills just won't work
+  await runShell('fnm install --lts', 300000);
+  try {
+    const versions = fs.readdirSync(path.join(FNM_DIR, 'node-versions'));
+    if (versions.length) {
+      const latest = versions.sort().reverse()[0];
+      const binDir = path.join(FNM_DIR, 'node-versions', latest, 'installation', 'bin');
+      if (fs.existsSync(binDir) && !process.env.PATH.split(path.delimiter).includes(binDir)) {
+        process.env.PATH = `${binDir}${path.delimiter}${process.env.PATH}`;
+      }
+    }
+  } catch (_) {}
+  return binExists('node') && binExists('npm');
+}
+
+async function ensureSkillDeps() {
+  ensureSkillsFiles();
+  if (!fs.existsSync(USER_SKILLS_DIR)) return;
+  if (!(await ensureNodeForSkills())) return;
+  let entries;
+  try { entries = fs.readdirSync(USER_SKILLS_DIR, { withFileTypes: true }); } catch { return; }
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const skillPath = path.join(USER_SKILLS_DIR, entry.name);
+    if (!fs.existsSync(path.join(skillPath, 'package.json'))) continue;
+    if (fs.existsSync(path.join(skillPath, 'node_modules'))) continue;
+    sendStatus(`Setting up skill: ${entry.name}…`);
+    await runShell(`cd "${skillPath}" && npm install --omit=dev`, 180000);
+    // Installing the `playwright` package does not download a browser —
+    // that's a separate, large (100MB+) fetch that `npm install` alone
+    // silently skips. A dev machine that's ever used Playwright before
+    // already has this cached globally and won't notice it's missing;
+    // a fresh beta tester's Mac will, the first time this skill runs.
+    if (fs.existsSync(path.join(skillPath, 'node_modules', 'playwright'))) {
+      sendStatus(`Downloading browser for ${entry.name}…`);
+      await runShell(`cd "${skillPath}" && npx playwright install chromium`, 300000);
+    }
+  }
+}
+
 function checkAuth() {
   return new Promise((resolve) => {
     execFile('claude', ['auth', 'status'], { timeout: 10000 }, (err, stdout) => {
@@ -195,6 +282,7 @@ async function createWindow() {
   await win.loadFile('bootstrap.html');
   if (!(await ensureClaudeCli())) return; // error already shown, nothing to recover into
   ensureNlmCli(); // best-effort, runs in the background — don't block on it
+  ensureSkillDeps(); // best-effort, runs in the background — don't block on it
 
   // FORCE_SIGNIN=1 npm start — preview the sign-in page without logging out
   // of the real Claude session (checkAuth() would otherwise skip right past it).

@@ -1,6 +1,6 @@
 {
   "name": "cozmo-app",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "",
   "main": "main.js",
   "scripts": {
@@ -22,7 +22,8 @@
     "files": ["main.js", "preload.js", "signin.html", "bootstrap.html", "!node_modules/electron-builder/**"],
     "extraResources": [
       { "from": "../cozbra-dashboard", "to": "dashboard", "filter": ["**/*", "!.git", "!*.jsonl*"] },
-      { "from": "vault-template", "to": "vault-template" }
+      { "from": "vault-template", "to": "vault-template" },
+      { "from": "skills-bundle", "to": "skills-template", "filter": ["**/*", "!node_modules"] }
     ],
     "mac": { "category": "public.app-category.productivity" }
   }

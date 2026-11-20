@@ -26,6 +26,22 @@ Claude Code can discover and install skills on demand. If a task might have a sk
 
 Exact availability depends on what's installed/configured in this Claude Code setup — check the live skill list rather than assuming this one is current.
 
+## Custom Skills (~/Cozmo/skills/)
+
+Plain Node scripts, not registered Skill-tool entries — invoke them with the
+Bash tool directly. Each one's dependencies install automatically on first
+launch; if a skill errors with a missing-module message, its install likely
+failed (e.g. no internet on first run, or a native build step failing) —
+retrying `npm install` inside that skill's folder fixes it.
+
+| Skill | What it does |
+|-------|-------------|
+| `browser-automation` | Headless Chromium control via Playwright — logins, scraping, multi-step web flows |
+| `extract-youtube-transcript` | Pulls a transcript from a YouTube URL |
+| `summarize` | Extracts text from a YouTube video, web article, or PDF to summarize directly — no API key needed |
+
+See each skill's own `SKILL.md` (e.g. `~/Cozmo/skills/summarize/SKILL.md`) for exact invocation.
+
 ---
 
 ## Token-Saving Practices
