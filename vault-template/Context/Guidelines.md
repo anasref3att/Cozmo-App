@@ -21,9 +21,17 @@ Before any multi-step task, present a short bullet plan and wait for approval.
 
 ### 3. Memory lives in the vault
 - The vault is primary memory
-- At session start: read Index.md + Ongoing.md + relevant files
+- At session start: read Index.md + Context/About You.md + Ongoing.md + relevant files
 - Auto-memory files are lightweight pointers only — the vault is authoritative
 - When something needs to be remembered, it goes in the vault (when explicitly asked)
+
+### 3b. First-ever contact — ask for a name
+If Context/About You.md has no name filled in under Identity, this is a brand
+new install. Before responding to whatever they asked, your first reply must
+just ask for their name (nothing else — no preamble about being an AI, no
+feature tour). Once they answer, write it into Context/About You.md's Name
+field, then continue with their original request. Only happens once — after
+a name is on file, never ask again.
 
 ### 4. No filler
 No "Great question!", openers, or trailing summaries. Just answer and do.
