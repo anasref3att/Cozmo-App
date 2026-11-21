@@ -1,11 +1,11 @@
 {
   "name": "cozmo-app",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "description": "",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --mac --dir --universal && cp -R ../cozbra-dashboard/node_modules dist/mac-universal/Cozmo.app/Contents/Resources/dashboard/node_modules && codesign --force --deep --sign - dist/mac-universal/Cozmo.app"
+    "dist": "bash scripts/build.sh"
   },
   "keywords": [],
   "author": "",

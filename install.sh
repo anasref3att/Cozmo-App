@@ -7,11 +7,18 @@ set -e
 
 REPO="anasref3att/Cozmo-App"
 
-echo "Finding the latest Cozmo release..."
-URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" | grep '"browser_download_url".*\.zip"' | head -1 | cut -d '"' -f 4)
+# Two separate single-arch builds ship per release (each roughly half the
+# size of one universal binary) — grab the one that actually matches this
+# Mac instead of downloading both architectures' worth of Electron runtime.
+ARCH_TAG="x64"
+if [ "$(uname -m)" = "arm64" ]; then ARCH_TAG="arm64"; fi
+
+echo "Finding the latest Cozmo release (mac-$ARCH_TAG)..."
+RELEASE_JSON=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest")
+URL=$(echo "$RELEASE_JSON" | grep "\"browser_download_url\".*mac-$ARCH_TAG\.zip\"" | head -1 | cut -d '"' -f 4)
 
 if [ -z "$URL" ]; then
-  echo "Couldn't find a release asset. Check https://github.com/$REPO/releases"
+  echo "Couldn't find a mac-$ARCH_TAG release asset. Check https://github.com/$REPO/releases"
   exit 1
 fi
 
