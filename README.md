@@ -45,10 +45,29 @@ memory across chats — download it, sign in twice, and that's the whole setup.
   gets a digest of what the others covered, plus whatever notes you give the
   project — shared context, not just a folder label.
 - **Learn** — syncs course material into NotebookLM, with sign-in/out built in.
-- **Zero setup** — first launch installs `claude` and `nlm` for you if they're
-  missing, then walks you through sign-in. No terminal, ever.
+- **Zero setup after install** — first launch installs `claude` and `nlm` for
+  you if they're missing, then walks you through sign-in.
 
 ## Installing
+
+Open Terminal and run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/anasref3att/Cozmo-App/main/install.sh | bash
+```
+
+This downloads the latest release, installs it to `/Applications` (replacing
+any existing `Cozmo.app` there), and launches it — no Gatekeeper prompt.
+Browsers tag a download with a "downloaded from the internet" flag that
+macOS then blocks an unsigned app for; `curl` never sets that flag, so this
+sidesteps the problem instead of working around it after the fact.
+
+Then sign in to Claude when asked. If you use the Learn tab, sign in to
+NotebookLM from there too. That's it — everything else (the vault, Diary,
+Logs) builds itself on first run.
+
+<details>
+<summary>Prefer to do it manually, or the one-liner isn't an option?</summary>
 
 1. Grab the latest build from [Releases](../../releases) — unzip it.
 2. **Right-click → Open** the first time (it's unsigned, so macOS Gatekeeper
@@ -60,10 +79,8 @@ memory across chats — download it, sign in twice, and that's the whole setup.
    xattr -cr ~/Downloads/Cozmo.app
    ```
    (adjust the path if you moved it elsewhere), then try opening it again.
-4. Sign in to Claude when asked. If you use the Learn tab, sign in to
-   NotebookLM from there too.
 
-That's it — everything else (the vault, Diary, Logs) builds itself on first run.
+</details>
 
 ## Building from source
 
