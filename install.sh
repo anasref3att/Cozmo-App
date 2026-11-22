@@ -31,6 +31,20 @@ curl -fL --progress-bar "$URL" -o "$TMPDIR/Cozmo.zip"
 echo "Extracting..."
 ditto -x -k "$TMPDIR/Cozmo.zip" "$TMPDIR"
 
+# Electron's single-instance lock is keyed by a fixed path (userData),
+# not by which build is on disk — if a previous Cozmo is still running
+# when this reinstalls, `open` below just refocuses that OLD, already-loaded
+# process instead of starting the new one. Every fix in a release would
+# silently never take effect for anyone who didn't fully quit the app
+# first. Force-quit whatever's running before replacing the files.
+if pgrep -x "Cozmo" >/dev/null 2>&1; then
+  echo "Quitting the running Cozmo..."
+  osascript -e 'quit app "Cozmo"' 2>/dev/null || true
+  sleep 1
+  pkill -x "Cozmo" 2>/dev/null || true
+  sleep 1
+fi
+
 if [ -d "/Applications/Cozmo.app" ]; then
   echo "Removing previous install..."
   rm -rf "/Applications/Cozmo.app"

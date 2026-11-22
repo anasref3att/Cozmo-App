@@ -65,12 +65,29 @@ function waitForServer(retries = 40) {
   });
 }
 
+// A prior Cozmo run that crashed or got force-quit can leave its dashboard
+// child orphaned (reparented to launchd) and still holding PORT — the next
+// launch's own child then fails to bind, never actually serves, and the
+// window ends up silently talking to the dead old process instead. kill()
+// from this main process only reaches a child it still has a handle to; an
+// orphan from a *previous* main process has none, so the only reliable fix
+// is to find whoever currently holds the port, by process name, and take it
+// down before spawning our own.
+function killStaleServerHolders() {
+  try {
+    execFileSync('pkill', ['-9', '-f', 'dashboard/server.js'], { env: process.env });
+  } catch (_) {
+    // exit code 1 just means "nothing matched" — fine, nothing to clean up.
+  }
+}
+
 function startServer() {
   // Already have a live child from a previous call (e.g. a second window-open
   // on macOS) — reuse it instead of spawning another one on the same port.
   if (serverProc) return serverReady;
 
   ensureVault();
+  killStaleServerHolders();
 
   serverProc = spawn(process.execPath, [path.join(DASHBOARD_DIR, 'server.js')], {
     cwd: DASHBOARD_DIR,
@@ -266,7 +283,12 @@ async function enterDashboard() {
     app.quit();
     return;
   }
-  win.loadURL(`http://localhost:${PORT}`);
+  // bypassing cache: Electron's HTTP cache lives in userData, which
+  // survives every app reinstall across every version — a stale cached
+  // app.js/index.html from an old build could otherwise keep running
+  // silently forever even after installing a fix.
+  win.loadURL(`http://localhost:${PORT}`, { extraHeaders: 'pragma: no-cache\n' });
+  win.webContents.once('did-finish-load', () => win.webContents.reloadIgnoringCache());
 }
 
 async function createWindow() {
@@ -277,6 +299,25 @@ async function createWindow() {
     backgroundColor: '#06080C',
     icon: path.join(__dirname, 'build', 'icon.iconset', 'icon_512x512.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js') },
+  });
+
+  // Renderer console output (including uncaught JS errors) is otherwise
+  // invisible outside DevTools. Writing straight to a file instead of just
+  // console.log means this works no matter how the app was launched
+  // (Finder/Dock detach stdout entirely) — a real bug shows up here
+  // instead of the app just looking blank with no trace of why.
+  const diagLog = path.join(app.getPath('userData'), 'renderer-console.log');
+  function logDiag(line) {
+    try { fs.appendFileSync(diagLog, `[${new Date().toISOString()}] ${line}\n`); } catch (_) {}
+  }
+  win.webContents.on('console-message', (_e, level, message, line, sourceId) => {
+    logDiag(`console: ${message} (${sourceId}:${line})`);
+  });
+  win.webContents.on('render-process-gone', (_e, details) => {
+    logDiag(`render-process-gone: ${JSON.stringify(details)}`);
+  });
+  win.webContents.on('did-fail-load', (_e, errorCode, errorDescription, validatedURL) => {
+    logDiag(`did-fail-load: ${validatedURL} ${errorCode} ${errorDescription}`);
   });
 
   await win.loadFile('bootstrap.html');
@@ -327,8 +368,16 @@ if (!gotLock) {
 }
 
 app.on('window-all-closed', () => {
-  if (serverProc) serverProc.kill();
+  if (serverProc) serverProc.kill('SIGKILL');
   if (process.platform !== 'darwin') app.quit();
+});
+
+// window-all-closed doesn't fire on every quit path (e.g. Cmd+Q while the
+// window still exists can tear down the whole app before it does) — this is
+// the one event that reliably fires on every quit route, so it's the real
+// backstop against leaving the dashboard child orphaned.
+app.on('before-quit', () => {
+  if (serverProc) { serverProc.kill('SIGKILL'); serverProc = null; serverReady = null; }
 });
 
 // macOS: clicking the dock icon after all windows closed should reopen one,
