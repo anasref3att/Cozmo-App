@@ -1,0 +1,35 @@
+name: Publish verified Intel preview ZIP (no build)
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: publish-cozmo-v0018
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Verify existing draft, join tested ZIP and publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh release view v0.0.18 --json isDraft --jq .isDraft)" = true
+          work="$RUNNER_TEMP/cozmo-release"
+          mkdir -p "$work"
+          cd "$work"
+          gh release download v0.0.18 --pattern 'Cozmo-Native-Intel.zip.part*'
+          printf '%s  %s\n' 53a5c1aee055ec91a4e40bb4c15d05ddc08566642cde21d29aa925b355772733 Cozmo-Native-Intel.zip.part1 157c51bfb9d9fe479c0da49e5987329c0c11fca97aea258cdc5415a8ad186117 Cozmo-Native-Intel.zip.part2 | sha256sum --check -
+          cat Cozmo-Native-Intel.zip.part1 Cozmo-Native-Intel.zip.part2 > Cozmo-Native-Intel.zip
+          printf '%s  %s\n' 024755ee99936d0d0027afef3f2b8ebee4d821e011493bc12b1f10d04fb74e00 Cozmo-Native-Intel.zip > SHA256SUMS
+          sha256sum --check SHA256SUMS
+          unzip -tq Cozmo-Native-Intel.zip
+          gh release upload v0.0.18 Cozmo-Native-Intel.zip SHA256SUMS
+          gh release delete-asset v0.0.18 Cozmo-Native-Intel.zip.part1 --yes
+          gh release delete-asset v0.0.18 Cozmo-Native-Intel.zip.part2 --yes
+          gh release edit v0.0.18 --draft=false --prerelease --latest=false
+          gh release view v0.0.18 --json url,isPrerelease,assets
