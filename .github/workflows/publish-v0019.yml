@@ -20,18 +20,25 @@ jobs:
           set -euo pipefail
           release_id=$(gh api "repos/$GH_REPO/releases" --jq '.[] | select(.draft == true and .name == "Cozmo v0.0.19 - Intel native app") | .id')
           [[ "$release_id" =~ ^[0-9]+$ ]]
-          tag=$(gh api "repos/$GH_REPO/releases/$release_id" --jq .tag_name)
           work="$RUNNER_TEMP/cozmo-release"
           mkdir -p "$work"
           cd "$work"
-          gh release download "$tag" --pattern 'Cozmo-Native-Intel.zip.part*'
+          gh api "repos/$GH_REPO/releases/$release_id/assets" --jq '.[] | "\(.id) \(.name)"' | tee assets.txt
+          [ "$(wc -l < assets.txt)" = 2 ]
+          id1=$(awk '$2=="Cozmo-Native-Intel.zip.part1"{print $1}' assets.txt)
+          id2=$(awk '$2=="Cozmo-Native-Intel.zip.part2"{print $1}' assets.txt)
+          [[ "$id1" =~ ^[0-9]+$ && "$id2" =~ ^[0-9]+$ ]]
+          gh api -H "Accept: application/octet-stream" "repos/$GH_REPO/releases/assets/$id1" > Cozmo-Native-Intel.zip.part1
+          gh api -H "Accept: application/octet-stream" "repos/$GH_REPO/releases/assets/$id2" > Cozmo-Native-Intel.zip.part2
           printf '%s  %s\n' 72c2de9d781d19b3f49ab11d593b34f4f15299715841a7eb2bb2bbeb5ce0d94f Cozmo-Native-Intel.zip.part1 d0b0af737ac6dcf0f95113d76377b6318c8f1a8082f129a7a5241eb7a9609529 Cozmo-Native-Intel.zip.part2 | sha256sum --check -
           cat Cozmo-Native-Intel.zip.part1 Cozmo-Native-Intel.zip.part2 > Cozmo-Native-Intel.zip
           printf '%s  %s\n' 6e7225eac8a422cc00d5bf78358c207b566ca10e43bdfed752e8b0e7201ab3c1 Cozmo-Native-Intel.zip > SHA256SUMS
           sha256sum --check SHA256SUMS
           unzip -tq Cozmo-Native-Intel.zip
-          gh release upload "$tag" Cozmo-Native-Intel.zip SHA256SUMS
-          gh release delete-asset "$tag" Cozmo-Native-Intel.zip.part1 --yes
-          gh release delete-asset "$tag" Cozmo-Native-Intel.zip.part2 --yes
-          gh api --method PATCH "repos/$GH_REPO/releases/$release_id" -f tag_name=v0.0.19 -F draft=false -F prerelease=false -f make_latest=true
-          gh release view v0.0.19 --json url,isPrerelease,assets
+          up="https://uploads.github.com/repos/$GH_REPO/releases/$release_id/assets"
+          gh api --method POST "$up?name=Cozmo-Native-Intel.zip" -H "Content-Type: application/zip" --input Cozmo-Native-Intel.zip --jq .name
+          gh api --method POST "$up?name=SHA256SUMS" -H "Content-Type: text/plain" --input SHA256SUMS --jq .name
+          gh api --method DELETE "repos/$GH_REPO/releases/assets/$id1"
+          gh api --method DELETE "repos/$GH_REPO/releases/assets/$id2"
+          gh api --method PATCH "repos/$GH_REPO/releases/$release_id" -f tag_name=v0.0.19 -F draft=false -F prerelease=false -f make_latest=true --jq '.html_url'
+          gh api "repos/$GH_REPO/releases/tags/v0.0.19" --jq '{url:.html_url,prerelease,draft,assets:[.assets[]|{name,size,digest}]}'
