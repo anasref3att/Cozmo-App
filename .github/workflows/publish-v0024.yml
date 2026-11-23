@@ -1,0 +1,56 @@
+name: Publish verified Cozmo v0.0.24 native ZIPs
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: publish-cozmo-v0024
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Join audited assets, verify and publish both native builds
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_id=$(gh api "repos/$GH_REPO/releases" --jq '.[] | select(.draft == true and .name == "Cozmo v0.0.24 - Deeper Sources") | .id')
+          [[ "$release_id" =~ ^[0-9]+$ ]]
+          mkdir -p "$RUNNER_TEMP/cozmo-release"
+          cd "$RUNNER_TEMP/cozmo-release"
+          gh api "repos/$GH_REPO/releases/$release_id/assets" --jq '.[] | "\(.id) \(.name)"' | tee assets.txt
+          [ "$(wc -l < assets.txt)" = 4 ]
+          id1=$(awk '$2 == "Cozmo-Native-Intel.zip.part1" {print $1}' assets.txt)
+          id2=$(awk '$2 == "Cozmo-Native-Intel.zip.part2" {print $1}' assets.txt)
+          [[ "$id1" =~ ^[0-9]+$ && "$id2" =~ ^[0-9]+$ ]]
+          gh api -H "Accept: application/octet-stream" "repos/$GH_REPO/releases/assets/$id1" > Cozmo-Native-Intel.zip.part1
+          gh api -H "Accept: application/octet-stream" "repos/$GH_REPO/releases/assets/$id2" > Cozmo-Native-Intel.zip.part2
+          printf '%s  %s\n' 9fb72a8788ce6ebfaf268e1b153b2baac24640f0fc7c99bd0777778c9ac39ac6 Cozmo-Native-Intel.zip.part1 770577b637534d33c60f6a4adcb427179354d4f42809a4795d4f5f72bd7830a3 Cozmo-Native-Intel.zip.part2 | sha256sum --check -
+          cat Cozmo-Native-Intel.zip.part1 Cozmo-Native-Intel.zip.part2 > Cozmo-Native-Intel.zip
+          printf '%s  %s\n' a1aeea52760a90315db008cfc704124741ee1b5bf215e2d77c076e4572412333 Cozmo-Native-Intel.zip >> SHA256SUMS
+          unzip -tq Cozmo-Native-Intel.zip
+          id1=$(awk '$2 == "Cozmo-Native-AppleSilicon.zip.part1" {print $1}' assets.txt)
+          id2=$(awk '$2 == "Cozmo-Native-AppleSilicon.zip.part2" {print $1}' assets.txt)
+          [[ "$id1" =~ ^[0-9]+$ && "$id2" =~ ^[0-9]+$ ]]
+          gh api -H "Accept: application/octet-stream" "repos/$GH_REPO/releases/assets/$id1" > Cozmo-Native-AppleSilicon.zip.part1
+          gh api -H "Accept: application/octet-stream" "repos/$GH_REPO/releases/assets/$id2" > Cozmo-Native-AppleSilicon.zip.part2
+          printf '%s  %s\n' fb4d880d74a923ee6fe91a0bd6aa9b0355943cecac953b456a33aa27c99dfbd3 Cozmo-Native-AppleSilicon.zip.part1 e0ae720340e902f6caa7d09daba2a1558cc34b6dafaf50a6679311419d1b3c12 Cozmo-Native-AppleSilicon.zip.part2 | sha256sum --check -
+          cat Cozmo-Native-AppleSilicon.zip.part1 Cozmo-Native-AppleSilicon.zip.part2 > Cozmo-Native-AppleSilicon.zip
+          printf '%s  %s\n' ff99f06190715d329c1ef51f8a96673e33c12bc8c3a2f21e419c540cea738602 Cozmo-Native-AppleSilicon.zip >> SHA256SUMS
+          unzip -tq Cozmo-Native-AppleSilicon.zip
+          sha256sum --check SHA256SUMS
+          up="https://uploads.github.com/repos/$GH_REPO/releases/$release_id/assets"
+          for name in Cozmo-Native-Intel.zip Cozmo-Native-AppleSilicon.zip; do
+            gh api --method POST "$up?name=$name" -H "Content-Type: application/zip" --input "$name" --jq .name
+          done
+          gh api --method POST "$up?name=SHA256SUMS" -H "Content-Type: text/plain" --input SHA256SUMS --jq .name
+          while read -r id name; do
+            [[ "$id" =~ ^[0-9]+$ && "$name" == *.zip.part[12] ]]
+            gh api --method DELETE "repos/$GH_REPO/releases/assets/$id"
+          done < assets.txt
+          gh api --method PATCH "repos/$GH_REPO/releases/$release_id" -f tag_name=v0.0.24 -F draft=false -F prerelease=false -f make_latest=true --jq '.html_url'
+          gh api "repos/$GH_REPO/releases/tags/v0.0.24" --jq '{url:.html_url,prerelease,draft,assets:[.assets[]|{name,size,digest}]}'
