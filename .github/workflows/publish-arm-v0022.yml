@@ -1,0 +1,44 @@
+name: Add verified Cozmo v0.0.22 Apple Silicon ZIP (no build)
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: publish-cozmo-arm-v0022
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Join tested ZIP parts and add to the published release
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp_id=$(gh api "repos/$GH_REPO/releases" --jq '.[] | select(.draft == true and .name == "tmp arm64 parts v0.0.22") | .id')
+          [[ "$tmp_id" =~ ^[0-9]+$ ]]
+          rel_id=$(gh api "repos/$GH_REPO/releases/tags/v0.0.22" --jq .id)
+          [[ "$rel_id" =~ ^[0-9]+$ ]]
+          work="$RUNNER_TEMP/cozmo-arm"
+          mkdir -p "$work"
+          cd "$work"
+          gh api "repos/$GH_REPO/releases/$tmp_id/assets" --jq '.[] | "\(.id) \(.name)"' | tee assets.txt
+          [ "$(wc -l < assets.txt)" = 2 ]
+          id1=$(awk '$2 ~ /AppleSilicon[.]zip[.]part1$/{print $1}' assets.txt)
+          id2=$(awk '$2 ~ /AppleSilicon[.]zip[.]part2$/{print $1}' assets.txt)
+          [[ "$id1" =~ ^[0-9]+$ && "$id2" =~ ^[0-9]+$ ]]
+          gh api -H "Accept: application/octet-stream" "repos/$GH_REPO/releases/assets/$id1" > Cozmo-Native-AppleSilicon.zip.part1
+          gh api -H "Accept: application/octet-stream" "repos/$GH_REPO/releases/assets/$id2" > Cozmo-Native-AppleSilicon.zip.part2
+          printf '%s  %s\n' 4a9e4c4a3646f357c8a2aa15665e68bb84c80234db234acfe4e4a997d0ed9275 Cozmo-Native-AppleSilicon.zip.part1 00c308b0095a4b7391212df9bd38934a3ab9cdc6e72eead9437747f411f73124 Cozmo-Native-AppleSilicon.zip.part2 | sha256sum --check -
+          cat Cozmo-Native-AppleSilicon.zip.part1 Cozmo-Native-AppleSilicon.zip.part2 > Cozmo-Native-AppleSilicon.zip
+          printf '%s  %s\n' 092d67e4c3a69127b9df737c80edcff56a8d0e9fe1a11505e49f27210e8ba97d Cozmo-Native-AppleSilicon.zip > SHA256SUMS-AppleSilicon
+          sha256sum --check SHA256SUMS-AppleSilicon
+          unzip -tq Cozmo-Native-AppleSilicon.zip
+          up="https://uploads.github.com/repos/$GH_REPO/releases/$rel_id/assets"
+          gh api --method POST "$up?name=Cozmo-Native-AppleSilicon.zip" -H "Content-Type: application/zip" --input Cozmo-Native-AppleSilicon.zip --jq .name
+          gh api --method POST "$up?name=SHA256SUMS-AppleSilicon" -H "Content-Type: text/plain" --input SHA256SUMS-AppleSilicon --jq .name
+          gh api --method DELETE "repos/$GH_REPO/releases/$tmp_id"
+          gh api "repos/$GH_REPO/releases/tags/v0.0.22" --jq '{url:.html_url,prerelease,draft,assets:[.assets[]|{name,size,digest}]}'
