@@ -25,8 +25,8 @@ jobs:
           cd "$work"
           gh api "repos/$GH_REPO/releases/$release_id/assets" --jq '.[] | "\(.id) \(.name)"' | tee assets.txt
           [ "$(wc -l < assets.txt)" = 2 ]
-          id1=$(awk '$2=="Cozmo-Native-Intel.zip.part1"{print $1}' assets.txt)
-          id2=$(awk '$2=="Cozmo-Native-Intel.zip.part2"{print $1}' assets.txt)
+          id1=$(awk '$2 ~ /Cozmo-Native-Intel[.]zip[.]part1$/{print $1}' assets.txt)
+          id2=$(awk '$2 ~ /Cozmo-Native-Intel[.]zip[.]part2$/{print $1}' assets.txt)
           [[ "$id1" =~ ^[0-9]+$ && "$id2" =~ ^[0-9]+$ ]]
           gh api -H "Accept: application/octet-stream" "repos/$GH_REPO/releases/assets/$id1" > Cozmo-Native-Intel.zip.part1
           gh api -H "Accept: application/octet-stream" "repos/$GH_REPO/releases/assets/$id2" > Cozmo-Native-Intel.zip.part2
